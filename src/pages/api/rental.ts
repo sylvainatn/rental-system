@@ -8,40 +8,55 @@ export default async function handleRental(req: NextApiRequest, res: NextApiResp
       try {
          const { customerId, filmId } = req.body;
 
-         // Vérifier si le film existe et est disponible
+         // Vérifier si le film existe
          const film = await prisma.film.findUnique({
-            where: { id: filmId },
+            where: { film_id: filmId },
          });
 
          if (!film) {
             return res.status(404).json({ error: 'Film non trouvé.' });
          }
 
-         if (!film.available) {
-            return res.status(400).json({ error: 'Film non disponible.' });
+         // Vérifier si le film est disponible dans l'inventaire
+         const inventory = await prisma.inventory.findFirst({
+            where: {
+               film_id: film.film_id,
+               // L'inventaire doit être dans un magasin et être disponible (pas déjà loué)
+               rental: {
+                  some: {
+                     return_date: null,  // Le film n'a pas été retourné
+                  },
+               },
+            },
+         });
+
+         if (!inventory) {
+            return res.status(404).json({ error: 'Film non disponible en stock.' });
          }
 
          // Vérifier si le client existe
          const customer = await prisma.customer.findUnique({
-            where: { id: customerId },
+            where: { customer_id: customerId },
          });
 
-         if (!customer) {
-            return res.status(404).json({ error: 'Client non trouvé.' });
+         if (!customer || !customer.active) {
+            return res.status(404).json({ error: 'Client non trouvé ou inactif.' });
          }
 
-         // Enregistrer la location
+         // Créer la location
          const rental = await prisma.rental.create({
             data: {
-               customerId: customer.id,
-               filmId: film.id,
+               customer_id: customer.customer_id,
+               inventory_id: inventory.inventory_id,
+               rental_date: new Date(),
+               staff_id: 1, // Remplacer par l'ID du staff si nécessaire
             },
          });
 
-         // Mettre à jour la disponibilité du film
-         await prisma.film.update({
-            where: { id: film.id },
-            data: { available: false },  // Le film devient non disponible
+         // Marquer l'inventaire comme loué
+         await prisma.inventory.update({
+            where: { inventory_id: inventory.inventory_id },
+            data: { last_update: new Date() }, // Mettre à jour la date de dernière mise à jour
          });
 
          res.status(201).json(rental); // Répondre avec la location créée

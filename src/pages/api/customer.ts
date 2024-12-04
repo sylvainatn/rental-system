@@ -3,66 +3,92 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const errorMessages = {
+   genericError: 'Une erreur s\'est produite lors de l\'opération.',
+   clientExists: 'Un client avec cet email existe déjà.',
+   missingFields: 'Tous les champs (first_name, last_name, email, store_id, address_id) sont requis.',
+   clientNotFound: 'Client non trouvé.',
+   emailInUse: 'Un autre client possède déjà cet email.',
+};
+
 export default async function handleCustomer(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'GET') {
-      // Récupérer tous les clients
       try {
          const customers = await prisma.customer.findMany();
          res.status(200).json(customers);
       } catch (error) {
          console.error(error);
-         res.status(500).json({ error: 'Une erreur s\'est produite lors de la récupération des clients.' });
+         res.status(500).json({ error: errorMessages.genericError });
       }
    } else if (req.method === 'POST') {
-      // Ajouter un nouveau client
       try {
-         const { name, email } = req.body;  // Vous pouvez ajouter d'autres champs si nécessaire
+         const { first_name, last_name, email, store_id, address_id } = req.body;
+
+         if (!first_name || !last_name || !email || !store_id || !address_id) {
+            return res.status(400).json({ error: errorMessages.missingFields });
+         }
+
+         const existingCustomer = await prisma.customer.findUnique({
+            where: { email },
+         });
+
+         if (existingCustomer) {
+            return res.status(400).json({ error: errorMessages.clientExists });
+         }
+
          const newCustomer = await prisma.customer.create({
             data: {
-               name,
+               first_name,
+               last_name,
                email,
+               store_id,
+               address_id,
+               activebool: true,
+               create_date: new Date(),
             },
          });
-         res.status(201).json(newCustomer); // Réponse avec le client créé
+
+         res.status(201).json(newCustomer);
       } catch (error) {
          console.error(error);
-         res.status(500).json({ error: 'Une erreur s\'est produite lors de la création d\'un client.' });
+         res.status(500).json({ error: errorMessages.genericError });
       }
    } else if (req.method === 'PUT') {
-      // Modifier un client existant
       try {
-         const { id, name, email } = req.body;
+         const { customer_id, first_name, last_name, email } = req.body;
 
-         if (!id) {
+         if (!customer_id) {
             return res.status(400).json({ error: 'L\'id du client est requis.' });
          }
 
-         // Vérifier si un autre client a le même email
+         if (!first_name || !last_name || !email) {
+            return res.status(400).json({ error: 'Les champs first_name, last_name et email sont requis pour la mise à jour.' });
+         }
+
          const existingCustomerWithEmail = await prisma.customer.findUnique({
             where: { email },
          });
 
-         // Si un client avec le même email existe, on empêche la mise à jour
-         if (existingCustomerWithEmail && existingCustomerWithEmail.id !== id) {
-            return res.status(400).json({ error: 'Un autre client possède déjà cet email.' });
+         // Si l'email n'a pas changé ou appartient au même client
+         if (existingCustomerWithEmail && existingCustomerWithEmail.customer_id !== customer_id) {
+            return res.status(400).json({ error: errorMessages.emailInUse });
          }
 
-         // Si aucun client avec cet email, on peut procéder à la mise à jour
          const updatedCustomer = await prisma.customer.update({
-            where: { id },
+            where: { customer_id },
             data: {
-               name,
+               first_name,
+               last_name,
                email,
             },
          });
 
-         res.status(200).json(updatedCustomer); // Retourner le client mis à jour
+         res.status(200).json(updatedCustomer);
       } catch (error) {
          console.error(error);
-         res.status(500).json({ error: 'Une erreur s\'est produite lors de la mise à jour du client.' });
+         res.status(500).json({ error: errorMessages.genericError });
       }
    } else {
-      // Méthode HTTP non supportée
       res.status(405).json({ error: 'Méthode HTTP non autorisée.' });
    }
 }

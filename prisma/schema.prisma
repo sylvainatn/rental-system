@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,29 +7,341 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model actor {
+  actor_id    Int          @id @default(autoincrement())
+  first_name  String       @db.VarChar(45)
+  last_name   String       @db.VarChar(45)
+  last_update DateTime     @default(now()) @db.Timestamp(6)
+  film_actor  film_actor[]
 
-model Customer {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  rentals   Rental[]
+  @@index([last_name], map: "idx_actor_last_name")
 }
 
-model Film {
-  id        Int      @id @default(autoincrement())
-  title     String
-  available Boolean @default(true)
-  genre     String
-  rentals   Rental[]
+model address {
+  address_id  Int        @id @default(autoincrement())
+  address     String     @db.VarChar(50)
+  address2    String?    @db.VarChar(50)
+  district    String     @db.VarChar(20)
+  city_id     Int
+  postal_code String?    @db.VarChar(10)
+  phone       String     @db.VarChar(20)
+  last_update DateTime   @default(now()) @db.Timestamp(6)
+  city        city       @relation(fields: [city_id], references: [city_id])
+  customer    customer[]
+  staff       staff[]
+  store       store[]
+
+  @@index([city_id], map: "idx_fk_city_id")
 }
 
-model Rental {
-  id          Int      @id @default(autoincrement())
-  rentalDate  DateTime @default(now())
-  returnDate  DateTime?
-  customerId  Int
-  filmId      Int
+model category {
+  category_id   Int             @id @default(autoincrement())
+  name          String          @db.VarChar(25)
+  last_update   DateTime        @default(now()) @db.Timestamp(6)
+  film_category film_category[]
+}
 
-  customer    Customer @relation(fields: [customerId], references: [id])
-  film        Film     @relation(fields: [filmId], references: [id])
+model city {
+  city_id     Int       @id @default(autoincrement())
+  city        String    @db.VarChar(50)
+  country_id  Int
+  last_update DateTime  @default(now()) @db.Timestamp(6)
+  address     address[]
+  country     country   @relation(fields: [country_id], references: [country_id])
+
+  @@index([country_id], map: "idx_fk_country_id")
+}
+
+model country {
+  country_id  Int      @id @default(autoincrement())
+  country     String   @db.VarChar(50)
+  last_update DateTime @default(now()) @db.Timestamp(6)
+  city        city[]
+}
+
+model customer {
+  customer_id      Int                @id @default(autoincrement())
+  store_id         Int
+  first_name       String             @db.VarChar(45)
+  last_name        String             @db.VarChar(45)
+  email            String             @unique @db.VarChar(50)
+  address_id       Int
+  activebool       Boolean            @default(true)
+  create_date      DateTime           @default(dbgenerated("('now'::text)::date")) @db.Date
+  last_update      DateTime?          @default(now()) @db.Timestamp(6)
+  active           Int?
+  address          address            @relation(fields: [address_id], references: [address_id])
+  store            store              @relation(fields: [store_id], references: [store_id])
+  payment          payment[]
+  payment_p2007_01 payment_p2007_01[] @ignore
+  payment_p2007_02 payment_p2007_02[] @ignore
+  payment_p2007_03 payment_p2007_03[] @ignore
+  payment_p2007_04 payment_p2007_04[] @ignore
+  payment_p2007_05 payment_p2007_05[] @ignore
+  payment_p2007_06 payment_p2007_06[] @ignore
+  rental           rental[]
+
+  @@index([address_id], map: "idx_fk_address_id")
+  @@index([store_id], map: "idx_fk_store_id")
+  @@index([last_name], map: "idx_last_name")
+}
+
+model film {
+  film_id                                      Int                     @id @default(autoincrement())
+  title                                        String                  @db.VarChar(255)
+  description                                  String?
+  release_year                                 Int?
+  language_id                                  Int
+  original_language_id                         Int?
+  rental_duration                              Int                     @default(3) @db.SmallInt
+  rental_rate                                  Decimal                 @default(4.99) @db.Decimal(4, 2)
+  length                                       Int?                    @db.SmallInt
+  replacement_cost                             Decimal                 @default(19.99) @db.Decimal(5, 2)
+  rating                                       mpaa_rating?            @default(G)
+  last_update                                  DateTime                @default(now()) @db.Timestamp(6)
+  special_features                             String[]
+  fulltext                                     Unsupported("tsvector")
+  language_film_language_idTolanguage          language                @relation("film_language_idTolanguage", fields: [language_id], references: [language_id])
+  language_film_original_language_idTolanguage language?               @relation("film_original_language_idTolanguage", fields: [original_language_id], references: [language_id], onDelete: Restrict)
+  film_actor                                   film_actor[]
+  film_category                                film_category[]
+  inventory                                    inventory[]
+
+  @@index([fulltext], type: Gist)
+  @@index([language_id], map: "idx_fk_language_id")
+  @@index([original_language_id], map: "idx_fk_original_language_id")
+  @@index([title], map: "idx_title")
+}
+
+model film_actor {
+  actor_id    Int
+  film_id     Int
+  last_update DateTime @default(now()) @db.Timestamp(6)
+  actor       actor    @relation(fields: [actor_id], references: [actor_id])
+  film        film     @relation(fields: [film_id], references: [film_id])
+
+  @@id([actor_id, film_id])
+  @@index([film_id], map: "idx_fk_film_id")
+}
+
+model film_category {
+  film_id     Int
+  category_id Int
+  last_update DateTime @default(now()) @db.Timestamp(6)
+  category    category @relation(fields: [category_id], references: [category_id])
+  film        film     @relation(fields: [film_id], references: [film_id])
+
+  @@id([film_id, category_id])
+}
+
+model inventory {
+  inventory_id Int      @id @default(autoincrement())
+  film_id      Int
+  store_id     Int
+  last_update  DateTime @default(now()) @db.Timestamp(6)
+  film         film     @relation(fields: [film_id], references: [film_id])
+  store        store    @relation(fields: [store_id], references: [store_id])
+  rental       rental[]
+
+  @@index([store_id, film_id], map: "idx_store_id_film_id")
+}
+
+model language {
+  language_id                              Int      @id @default(autoincrement())
+  name                                     String   @db.Char(20)
+  last_update                              DateTime @default(now()) @db.Timestamp(6)
+  film_film_language_idTolanguage          film[]   @relation("film_language_idTolanguage")
+  film_film_original_language_idTolanguage film[]   @relation("film_original_language_idTolanguage")
+}
+
+/// This table has subclasses and requires additional setup for migrations. Visit https://pris.ly/d/table-inheritance for more info.
+model payment {
+  payment_id   Int      @id @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id])
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: SetNull)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id])
+
+  @@index([customer_id], map: "idx_fk_customer_id")
+  @@index([staff_id], map: "idx_fk_staff_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model payment_p2007_01 {
+  payment_id   Int      @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id], onDelete: NoAction, onUpdate: NoAction)
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: NoAction, onUpdate: NoAction)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_fk_payment_p2007_01_customer_id")
+  @@index([staff_id], map: "idx_fk_payment_p2007_01_staff_id")
+  @@ignore
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model payment_p2007_02 {
+  payment_id   Int      @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id], onDelete: NoAction, onUpdate: NoAction)
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: NoAction, onUpdate: NoAction)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_fk_payment_p2007_02_customer_id")
+  @@index([staff_id], map: "idx_fk_payment_p2007_02_staff_id")
+  @@ignore
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model payment_p2007_03 {
+  payment_id   Int      @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id], onDelete: NoAction, onUpdate: NoAction)
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: NoAction, onUpdate: NoAction)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_fk_payment_p2007_03_customer_id")
+  @@index([staff_id], map: "idx_fk_payment_p2007_03_staff_id")
+  @@ignore
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model payment_p2007_04 {
+  payment_id   Int      @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id], onDelete: NoAction, onUpdate: NoAction)
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: NoAction, onUpdate: NoAction)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_fk_payment_p2007_04_customer_id")
+  @@index([staff_id], map: "idx_fk_payment_p2007_04_staff_id")
+  @@ignore
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model payment_p2007_05 {
+  payment_id   Int      @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id], onDelete: NoAction, onUpdate: NoAction)
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: NoAction, onUpdate: NoAction)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_fk_payment_p2007_05_customer_id")
+  @@index([staff_id], map: "idx_fk_payment_p2007_05_staff_id")
+  @@ignore
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model payment_p2007_06 {
+  payment_id   Int      @default(autoincrement())
+  customer_id  Int
+  staff_id     Int
+  rental_id    Int
+  amount       Decimal  @db.Decimal(5, 2)
+  payment_date DateTime @db.Timestamp(6)
+  customer     customer @relation(fields: [customer_id], references: [customer_id], onDelete: NoAction, onUpdate: NoAction)
+  rental       rental   @relation(fields: [rental_id], references: [rental_id], onDelete: NoAction, onUpdate: NoAction)
+  staff        staff    @relation(fields: [staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_fk_payment_p2007_06_customer_id")
+  @@index([staff_id], map: "idx_fk_payment_p2007_06_staff_id")
+  @@ignore
+}
+
+model rental {
+  rental_id        Int                @id @default(autoincrement())
+  rental_date      DateTime           @db.Timestamp(6)
+  inventory_id     Int
+  customer_id      Int
+  return_date      DateTime?          @db.Timestamp(6)
+  staff_id         Int
+  last_update      DateTime           @default(now()) @db.Timestamp(6)
+  payment          payment[]
+  payment_p2007_01 payment_p2007_01[] @ignore
+  payment_p2007_02 payment_p2007_02[] @ignore
+  payment_p2007_03 payment_p2007_03[] @ignore
+  payment_p2007_04 payment_p2007_04[] @ignore
+  payment_p2007_05 payment_p2007_05[] @ignore
+  payment_p2007_06 payment_p2007_06[] @ignore
+  customer         customer           @relation(fields: [customer_id], references: [customer_id])
+  inventory        inventory          @relation(fields: [inventory_id], references: [inventory_id])
+  staff            staff              @relation(fields: [staff_id], references: [staff_id])
+
+  @@unique([rental_date, inventory_id, customer_id], map: "idx_unq_rental_rental_date_inventory_id_customer_id")
+  @@index([inventory_id], map: "idx_fk_inventory_id")
+}
+
+model staff {
+  staff_id                            Int                @id @default(autoincrement())
+  first_name                          String             @db.VarChar(45)
+  last_name                           String             @db.VarChar(45)
+  address_id                          Int
+  email                               String?            @db.VarChar(50)
+  store_id                            Int
+  active                              Boolean            @default(true)
+  username                            String             @db.VarChar(16)
+  password                            String?            @db.VarChar(40)
+  last_update                         DateTime           @default(now()) @db.Timestamp(6)
+  picture                             Bytes?
+  payment                             payment[]
+  payment_p2007_01                    payment_p2007_01[] @ignore
+  payment_p2007_02                    payment_p2007_02[] @ignore
+  payment_p2007_03                    payment_p2007_03[] @ignore
+  payment_p2007_04                    payment_p2007_04[] @ignore
+  payment_p2007_05                    payment_p2007_05[] @ignore
+  payment_p2007_06                    payment_p2007_06[] @ignore
+  rental                              rental[]
+  address                             address            @relation(fields: [address_id], references: [address_id])
+  store_staff_store_idTostore         store              @relation("staff_store_idTostore", fields: [store_id], references: [store_id], onDelete: NoAction, onUpdate: NoAction)
+  store_store_manager_staff_idTostaff store?             @relation("store_manager_staff_idTostaff")
+}
+
+model store {
+  store_id                            Int         @id @default(autoincrement())
+  manager_staff_id                    Int         @unique(map: "idx_unq_manager_staff_id")
+  address_id                          Int
+  last_update                         DateTime    @default(now()) @db.Timestamp(6)
+  customer                            customer[]
+  inventory                           inventory[]
+  staff_staff_store_idTostore         staff[]     @relation("staff_store_idTostore")
+  address                             address     @relation(fields: [address_id], references: [address_id])
+  staff_store_manager_staff_idTostaff staff       @relation("store_manager_staff_idTostaff", fields: [manager_staff_id], references: [staff_id])
+}
+
+enum mpaa_rating {
+  G
+  PG
+  PG_13 @map("PG-13")
+  R
+  NC_17 @map("NC-17")
 }
