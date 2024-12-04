@@ -70,6 +70,7 @@ model customer {
   create_date      DateTime           @default(dbgenerated("('now'::text)::date")) @db.Date
   last_update      DateTime?          @default(now()) @db.Timestamp(6)
   active           Int?
+  timezone         String?            @default("UTC") @db.VarChar(50)
   address          address            @relation(fields: [address_id], references: [address_id])
   store            store              @relation(fields: [store_id], references: [store_id])
   payment          payment[]
