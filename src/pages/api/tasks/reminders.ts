@@ -15,6 +15,8 @@ export default async function handleReminders(req: NextApiRequest, res: NextApiR
          const targetDate = new Date();
          targetDate.setDate(targetDate.getDate() + daysBeforeReturn);
 
+         console.log('\nDate ciblé :', targetDate);
+
          const rentals = await prisma.rental.findMany({
             where: {
                return_date: {
@@ -30,12 +32,12 @@ export default async function handleReminders(req: NextApiRequest, res: NextApiR
             },
          });
 
-         console.log(`Nombre de locations trouvées : ${rentals.length}`);
+         console.log(`Nombre de locations trouvées : ${rentals.length}\n`);
 
+         // Envoi des mails pour chaque clients
          for (const rental of rentals) {
             const { customer, inventory, return_date } = rental;
             const film = inventory.film;
-
 
             if (!return_date) {
                console.log(`Aucune date de retour pour la location ID : ${rental.rental_id}`);
