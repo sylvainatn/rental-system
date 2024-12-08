@@ -10,6 +10,9 @@
 !.yarn/releases
 !.yarn/versions
 
+# database
+/postgres-sakila-db
+
 # testing
 /coverage
 
